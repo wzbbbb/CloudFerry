@@ -84,7 +84,7 @@ class NeutronNetwork(network.Network):
                                  deploy_info['subnets'])
             self.upload_lb_monitors(deploy_info['lb_monitors'])
             self.associate_lb_monitors(deploy_info['lb_pools'],
-                                    deploy_info['lb_monitors'])
+                                       deploy_info['lb_monitors'])
             self.upload_lb_members(deploy_info['lb_members'],
                                    deploy_info['lb_pools'])
             self.upload_lb_vips(deploy_info['lb_vips'],
@@ -519,6 +519,15 @@ class NeutronNetwork(network.Network):
 
         return subnets_info
 
+    def reset_subnet_dhcp(self, subnet_id, dhcp_flag):
+        subnet_info = {
+            'subnet':
+            {
+                'enable_dhcp': dhcp_flag
+            }
+        }
+        return self.neutron_client.update_subnet(subnet_id, subnet_info)
+
     def get_routers(self):
         routers = self.neutron_client.list_routers()['routers']
         routers_info = []
@@ -596,13 +605,15 @@ class NeutronNetwork(network.Network):
 
     def upload_lb_vips(self, vips, pools, subnets):
         existing_vips = self.get_lb_vips()
-        existing_vips_hashlist = [ex_vip['res_hash'] for ex_vip in existing_vips]
+        existing_vips_hashlist = ([ex_vip['res_hash']
+                                  for ex_vip in existing_vips])
         existing_pools = self.get_lb_pools()
         existing_snets = self.get_subnets()
         for vip in vips:
             if vip['res_hash'] not in existing_vips_hashlist:
                 tenant_id = \
-                    self.identity_client.get_tenant_id_by_name(vip['tenant_name'])
+                    self.identity_client.\
+                    get_tenant_id_by_name(vip['tenant_name'])
                 pool_hash = self.get_res_hash_by_id(pools, vip['pool_id'])
                 dst_pool = self.get_res_by_hash(existing_pools, pool_hash)
                 snet_hash = self.get_res_hash_by_id(subnets, vip['subnet_id'])
@@ -621,14 +632,14 @@ class NeutronNetwork(network.Network):
                     }
                 }
                 if vip['session_persistence']:
-                    vip_info['vip']['session_persistence'] = vip['session_persistence']
+                    vip_info['vip']['session_persistence'] = \
+                        vip['session_persistence']
                 vip['meta']['id'] = \
                     self.neutron_client.create_vip(vip_info)['vip']['id']
             else:
                 LOG.info("| Dst cloud already has the same VIP "
                          "with address %s in tenant %s" %
                          (vip['address'], vip['tenant_name']))
-
 
     def upload_lb_members(self, members, pools):
         existing_members = self.get_lb_members()
@@ -638,7 +649,8 @@ class NeutronNetwork(network.Network):
         for member in members:
             if member['res_hash'] not in existing_members_hashlist:
                 tenant_id = \
-                    self.identity_client.get_tenant_id_by_name(member['tenant_name'])
+                    self.identity_client.\
+                    get_tenant_id_by_name(member['tenant_name'])
                 pool_hash = self.get_res_hash_by_id(pools, member['pool_id'])
                 dst_pool = self.get_res_by_hash(existing_pools, pool_hash)
                 member_info = {
@@ -649,12 +661,12 @@ class NeutronNetwork(network.Network):
                     }
                 }
                 member['meta']['id'] = \
-                    self.neutron_client.create_member(member_info)['member']['id']
+                    self.neutron_client.\
+                    create_member(member_info)['member']['id']
             else:
                 LOG.info("| Dst cloud already has the same member "
                          "with address %s in tenant %s" %
                          (member['address'], member['tenant_name']))
-
 
     def upload_lb_monitors(self, monitors):
         existing_mons = self.get_lb_monitors()
@@ -663,7 +675,8 @@ class NeutronNetwork(network.Network):
         for mon in monitors:
             if mon['res_hash'] not in existing_mons_hashlist:
                 tenant_id = \
-                    self.identity_client.get_tenant_id_by_name(mon['tenant_name'])
+                    self.identity_client.\
+                    get_tenant_id_by_name(mon['tenant_name'])
                 mon_info = {
                     'health_monitor':
                         {
@@ -676,9 +689,11 @@ class NeutronNetwork(network.Network):
                 }
                 if mon['url_path']:
                     mon_info['health_monitor']['url_path'] = mon['url_path']
-                    mon_info['health_monitor']['expected_codes'] = mon['expected_codes']
+                    mon_info['health_monitor']['expected_codes'] = \
+                        mon['expected_codes']
                 mon['meta']['id'] = \
-                    self.neutron_client.create_health_monitor(mon_info)['health_monitor']['id']
+                    self.neutron_client.\
+                    create_health_monitor(mon_info)['health_monitor']['id']
             else:
                 LOG.info("| Dst cloud already has the same healthmonitor "
                          "with type %s in tenant %s" %
@@ -692,19 +707,22 @@ class NeutronNetwork(network.Network):
             dst_pool = self.get_res_by_hash(existing_pools, pool_hash)
             for monitor_id in pool['health_monitors']:
                 monitor_hash = self.get_res_hash_by_id(monitors, monitor_id)
-                dst_monitor = self.get_res_by_hash(existing_monitors, monitor_hash)
+                dst_monitor = self.\
+                    get_res_by_hash(existing_monitors, monitor_hash)
                 if dst_monitor['id'] not in dst_pool['health_monitors']:
                     dst_monitor_info = {
-                        'health_monitor':{
+                        'health_monitor': {
                             'id': dst_monitor['id']
                         }
                     }
-                    self.neutron_client.associate_health_monitor(dst_pool['id'],
-                                                                 dst_monitor_info)
+                    self.neutron_client.associate_health_monitor(
+                        dst_pool['id'], dst_monitor_info)
                 else:
-                    LOG.info("| Dst pool with name %s already has associated the healthmonitor "
-                         "with id %s in tenant %s" %
-                         (dst_pool['name'], dst_monitor['id'], dst_monitor['tenant_name']))
+                    LOG.info("| Dst pool with name %s already has associated \
+                             the healthmonitor "
+                             "with id %s in tenant %s" %
+                             (dst_pool['name'], dst_monitor['id'],
+                              dst_monitor['tenant_name']))
 
     def upload_lb_pools(self, pools, subnets):
         existing_pools = self.get_lb_pools()
@@ -714,7 +732,8 @@ class NeutronNetwork(network.Network):
         for pool in pools:
             if pool['res_hash'] not in existing_pools_hashlist:
                 tenant_id = \
-                    self.identity_client.get_tenant_id_by_name(pool['tenant_name'])
+                    self.identity_client.\
+                    get_tenant_id_by_name(pool['tenant_name'])
                 snet_hash = self.get_res_hash_by_id(subnets, pool['subnet_id'])
                 snet_id = self.get_res_by_hash(existing_subnets,
                                                snet_hash)['id']
@@ -782,16 +801,18 @@ class NeutronNetwork(network.Network):
                                 'tenant_id': ex_secgr['tenant_id']}}
                         if rule['remote_group_id']:
                             remote_sghash = \
-                                self.get_res_hash_by_id(sec_groups,
-                                                        rule['remote_group_id'])
+                                self.get_res_hash_by_id(
+                                    sec_groups, rule['remote_group_id'])
                             rem_ex_sec_gr = \
                                 self.get_res_by_hash(ex_secgrs,
                                                      remote_sghash)
                             rinfo['security_group_rule']['remote_group_id'] = \
                                 rem_ex_sec_gr['id']
                         new_rule = \
-                            self.neutron_client.create_security_group_rule(rinfo)
-                        rule['meta']['id'] = new_rule['security_group_rule']['id']
+                            self.neutron_client.\
+                            create_security_group_rule(rinfo)
+                        rule['meta']['id'] = \
+                            new_rule['security_group_rule']['id']
 
     def upload_networks(self, networks):
         existing_nets_hashlist = \

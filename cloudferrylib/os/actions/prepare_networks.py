@@ -27,10 +27,15 @@ class PrepareNetworks(action.Action):
 
         network_resource = self.cloud.resources[utl.NETWORK_RESOURCE]
         identity_resource = self.cloud.resources[utl.IDENTITY_RESOURCE]
-
         keep_ip = self.cfg.migrate.keep_ip
-
         instances = info_compute[utl.INSTANCES_TYPE]
+        #disable DHCP in all subnets
+        subnets = network_resource.get_subnets()
+        for snet in subnets:
+            if snet['tenant_name'] == self.cfg.dst.tenant:
+                network_resource. \
+                    reset_subnet_dhcp(snet['id'], False)
+
         for (id_inst, inst) in instances.iteritems():
             params = []
             networks_info = inst[utl.INSTANCE_BODY][utl.INTERFACES]
@@ -59,12 +64,23 @@ class PrepareNetworks(action.Action):
                     if src_net['floatingip']:
                         dst_flotingips = network_resource.get_floatingips()
                         dst_flotingips_map = \
-                            {fl_ip['floating_ip_address']: fl_ip['id'] for fl_ip in dst_flotingips}
-                        dst_floatingip_id = dst_flotingips_map[src_net['floatingip']]
-                        floating_ip = network_resource.update_floatingip(dst_floatingip_id, port['id'])
+                            {fl_ip['floating_ip_address']:
+                                fl_ip['id'] for fl_ip in dst_flotingips}
+                        dst_floatingip_id = \
+                            dst_flotingips_map[src_net['floatingip']]
+                        floating_ip = \
+                            network_resource.\
+                            update_floatingip(dst_floatingip_id, port['id'])
                 params.append({'net-id': dst_net['id'], 'port-id': port['id']})
+
             instances[id_inst][utl.INSTANCE_BODY]['nics'] = params
         info_compute[utl.INSTANCES_TYPE] = instances
+        #reset dhcp to the original setting
+        for snet in subnets:
+            if snet['tenant_name'] == self.cfg.dst.tenant:
+                network_resource. \
+                    reset_subnet_dhcp(snet['id'], snet['enable_dhcp'])
+
         return {
             'info': info_compute
         }
