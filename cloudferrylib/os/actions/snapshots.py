@@ -27,14 +27,18 @@ class MysqlDump(action.Action):
         # dump mysql to file
         # probably, we have to choose what databases we have to dump
         # by default we dump all databases
+        user = self.cloud.cloud_config.mysql.user
+        password = self.cloud.cloud_config.mysql.password
+        path = self.cloud.cloud_config.snapshot.snapshot_path
+        if password == '':
+            password_arg = ''
+        else:
+            password_arg = "--password=" + password
         command = ("mysqldump "
-                   "--user={user} "
-                   "--password={password} "
+                   "--user={0} "
+                   "{1} "
                    "--opt "
-                   "--all-databases > {path}").format(
-            user=self.cloud.cloud_config.mysql.user,
-            password=self.cloud.cloud_config.mysql.password,
-            path=self.cloud.cloud_config.snapshot.snapshot_path)
+                   "--all-databases > {2}").format(user, password_arg, path)
         LOG.info("dumping database with command '%s'", command)
         self.cloud.ssh_util.execute(command)
         # copy dump file to host with cloudferry (for now just in case)
@@ -56,13 +60,17 @@ class MysqlRestore(action.Action):
 
     def run(self, *args, **kwargs):
         # apply sqldump from file to mysql
+        user = self.cloud.cloud_config.mysql.user
+        password = self.cloud.cloud_config.mysql.password
+        path = self.cloud.cloud_config.snapshot.snapshot_path
+        if password == '':
+            password_arg = ''
+        else:
+            password_arg = "--password=" + password
         command = ("mysql "
-                   "--user={user} "
-                   "--password={password} "
-                   "< {path}").format(
-            user=self.cloud.cloud_config.mysql.user,
-            password=self.cloud.cloud_config.mysql.password,
-            path=self.cloud.cloud_config.snapshot.snapshot_path)
+                   "--user={0} "
+                   "{1} "
+                   "< {2}").format(user, password_arg, path)
         LOG.info("restoring database with command '%s'", command)
         self.cloud.ssh_util.execute(command)
         return {}
